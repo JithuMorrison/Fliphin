@@ -181,7 +181,7 @@ class _DashboardPageState extends State<DashboardPage> {
               crossAxisCount: 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: 1.2,
+              childAspectRatio: 0.8,
             ),
             itemCount: snapshot.data!.length,
             itemBuilder: (context, index) {
@@ -564,14 +564,24 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
   int _wrongCount = 0;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)!.settings.arguments;
+    if (args != null && args is Category) {
+      category = args;
+      _cardsFuture = DatabaseHelper.instance.getCardsByCategory(category.id!);
+    } else {
+      throw Exception('Category not passed to PlayCardsPage');
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args = ModalRoute.of(context)!.settings.arguments as Category;
       setState(() {
-        category = args;
-        _cardsFuture = DatabaseHelper.instance.getCardsByCategory(category.id!);
         _loadStats();
+        _loadCards();
       });
     });
   }
