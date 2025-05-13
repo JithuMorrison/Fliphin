@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'cardcategory.dart';
 import 'dbhelper.dart';
 
 void main() {
@@ -198,6 +199,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   '/categoryCards',
                   arguments: category,
                 ),
+                ondelete: _refreshCategories,
               );
             },
           );
@@ -218,11 +220,13 @@ class _CategoryCard extends StatelessWidget {
   final Category category;
   final VoidCallback onTap;
   final VoidCallback onAddCards;
+  final VoidCallback ondelete;
 
   const _CategoryCard({
     required this.category,
     required this.onTap,
     required this.onAddCards,
+    required this.ondelete,
   });
 
   @override
@@ -290,9 +294,43 @@ class _CategoryCard extends StatelessWidget {
             Positioned(
               top: 8,
               right: 8,
-              child: IconButton(
-                icon: Icon(Icons.add_circle, color: Colors.blue),
-                onPressed: onAddCards,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.delete, color: Colors.red),
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: Text('Delete Category'),
+                          content: Text('Are you sure you want to delete this category and all its cards?'),
+                          actions: [
+                            TextButton(child: Text('Cancel'), onPressed: () => Navigator.pop(context, false)),
+                            TextButton(child: Text('Delete'), onPressed: () => Navigator.pop(context, true)),
+                          ],
+                        ),
+                      );
+
+                      if (confirm ?? false) {
+                        await DatabaseHelper.instance.deleteCategory(category.id!);
+                        ondelete();
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.add_circle, color: Colors.blue),
+                    onPressed: onAddCards,
+                  ),
+                  IconButton(onPressed: (){
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CategoryCardListPage(category: category),
+                      ),
+                    );
+                  }, icon: Icon(Icons.remove_red_eye)),
+                ],
               ),
             ),
           ],

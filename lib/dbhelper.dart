@@ -65,6 +65,13 @@ class DatabaseHelper {
     return await db.insert('categories', category.toMap());
   }
 
+  Future<int> deleteCategory(int id) async {
+    final db = await instance.database;
+    await db.delete('cards', where: 'category_id = ?', whereArgs: [id]);
+    await db.delete('stats', where: 'category_id = ?', whereArgs: [id]);
+    return await db.delete('categories', where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<List<Category>> getAllCategories() async {
     final db = await instance.database;
     final result = await db.query('categories');
