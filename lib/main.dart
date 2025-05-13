@@ -784,7 +784,7 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
                           ),
                         ),
                       ),
-                      if (_answerChecked) ...[
+                      if (_answerChecked && !_showAnswer) ...[
                         SizedBox(height: 24),
                         Text(
                           _isCorrect ? '✅ Correct!' : '❌ Incorrect',
@@ -831,9 +831,11 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
         child: Icon(_showAnswer ? Icons.visibility_off : Icons.visibility),
         onPressed: () {
           setState(() {
-            _showAnswer = !_showAnswer;
-            if (_showAnswer) {
-              _answerChecked = false;
+            if(_answerChecked) {
+              _showAnswer = !_showAnswer;
+              if (!_showAnswer) {
+                _answerChecked = false;
+              }
             }
           });
         },
