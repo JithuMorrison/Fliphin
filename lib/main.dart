@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'package:flutter/scheduler.dart' show timeDilation;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -595,6 +594,7 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
   late Category category;
   late Future<List<Flashcard>> _cardsFuture;
   List<Flashcard> _cards = [];
+  List<Flashcard> _shuffledCards = [];
   int _currentIndex = 0;
   bool _isFlipped = false;
   bool _answerChecked = false;
@@ -603,7 +603,6 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
   int _correctCount = 0;
   int _wrongCount = 0;
   late AnimationController _controller;
-  late Animation<double> _animation;
   final Duration _flipDuration = Duration(milliseconds: 500);
 
   @override
@@ -625,21 +624,9 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
       vsync: this,
       duration: _flipDuration,
     );
-    _animation = Tween<double>(begin: 0, end: 1).animate(_controller)
-      ..addListener(() {
-        setState(() {});
-      })
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          // Animation completed
-        }
-      });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {
-        _loadStats();
-        _loadCards();
-      });
+      _loadStats();
     });
   }
 
@@ -661,6 +648,7 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
   Future<void> _loadCards() async {
     _cards = await DatabaseHelper.instance.getCardsByCategory(category.id!);
     if (_cards.isNotEmpty) {
+      _shuffledCards = List.from(_cards)..shuffle();
       setState(() {
         _currentIndex = 0;
         _isFlipped = false;
@@ -673,8 +661,8 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
   void _checkAnswer() {
     if (_answerController.text.isEmpty) return;
 
-    final correctAnswer = _cards[_currentIndex].back.toLowerCase();
-    final userAnswer = _answerController.text.toLowerCase();
+    final correctAnswer = _shuffledCards[_currentIndex].back.toLowerCase().trim();
+    final userAnswer = _answerController.text.toLowerCase().trim();
 
     setState(() {
       _isCorrect = userAnswer == correctAnswer;
@@ -692,7 +680,7 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
 
   Future<void> _recordStat(bool isCorrect) async {
     final stat = CardStat(
-      cardId: _cards[_currentIndex].id!,
+      cardId: _shuffledCards[_currentIndex].id!,
       categoryId: category.id!,
       date: DateTime.now(),
       isCorrect: isCorrect,
@@ -701,7 +689,7 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
   }
 
   void _nextCard() {
-    if (_currentIndex < _cards.length - 1) {
+    if (_currentIndex < _shuffledCards.length - 1) {
       setState(() {
         _currentIndex++;
         _isFlipped = false;
@@ -710,7 +698,7 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
         _controller.reset();
       });
     } else {
-      // End of cards
+      // End of cards - reshuffle and start over
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -721,11 +709,11 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
               onPressed: () {
                 Navigator.pop(context);
                 setState(() {
+                  _shuffledCards.shuffle();
                   _currentIndex = 0;
                   _isFlipped = false;
                   _answerChecked = false;
                   _answerController.clear();
-                  _controller.reset();
                 });
               },
               child: Text('Start Over'),
@@ -737,7 +725,7 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
   }
 
   void _toggleCard() {
-    if (_controller.isAnimating) return;
+    if (_controller.isAnimating || !_answerChecked) return;
 
     if (_isFlipped) {
       _controller.reverse();
@@ -768,36 +756,74 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              card.front,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w600,
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: 100,
+                maxHeight: 200,
               ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 32),
-            TextField(
-              controller: _answerController,
-              decoration: InputDecoration(
-                labelText: 'Your answer',
-                border: OutlineInputBorder(),
-                filled: true,
-                fillColor: Colors.grey[100],
-              ),
-              onSubmitted: (_) => _checkAnswer(),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _checkAnswer,
-              child: Text('Check Answer', style: TextStyle(fontSize: 16)),
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              child: SingleChildScrollView(
+                child: Text(
+                  card.front,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
+            SizedBox(height: 32),
+            if (!_answerChecked) ...[
+              TextField(
+                controller: _answerController,
+                decoration: InputDecoration(
+                  labelText: 'Your answer',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                ),
+                onSubmitted: (_) => _checkAnswer(),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _checkAnswer,
+                child: Text('Check Answer', style: TextStyle(fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ] else ...[
+              Text(
+                _isCorrect ? '✅ Correct!' : '❌ Incorrect',
+                style: TextStyle(
+                  fontSize: 24,
+                  color: _isCorrect ? Colors.green : Colors.red,
+                ),
+              ),
+              if (!_isCorrect) ...[
+                SizedBox(height: 8),
+                Text(
+                  'Correct answer: ${card.back}',
+                  style: TextStyle(fontSize: 18, color: Colors.grey[700]),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _nextCard,
+                child: Text('Next Card', style: TextStyle(fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  backgroundColor: Colors.blue[600],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -822,17 +848,25 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              card.back,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w600,
-                color: Colors.blue[800],
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: 100,
+                maxHeight: 200,
               ),
-              textAlign: TextAlign.center,
+              child: SingleChildScrollView(
+                child: Text(
+                  card.back,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue[800],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
             SizedBox(height: 32),
-            if (_answerChecked)
+            if (_answerChecked) ...[
               Text(
                 _isCorrect ? '✅ Correct!' : '❌ Incorrect',
                 style: TextStyle(
@@ -840,48 +874,21 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
                   color: _isCorrect ? Colors.green : Colors.red,
                 ),
               ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _nextCard,
-              child: Text('Next Card', style: TextStyle(fontSize: 16)),
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _nextCard,
+                child: Text('Next Card', style: TextStyle(fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  backgroundColor: Colors.blue[600],
                 ),
-                backgroundColor: Colors.blue[600],
               ),
-            ),
+            ],
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildFlipCard(Flashcard card) {
-    return GestureDetector(
-      onTap: _answerChecked ? _toggleCard : null,
-      child: AnimatedSwitcher(
-        duration: _flipDuration,
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          final rotateAnim = Tween(begin: pi, end: 0.0).animate(animation);
-          return AnimatedBuilder(
-            animation: rotateAnim,
-            child: child,
-            builder: (context, child) {
-              final isHalfway = animation.value <= 0.5;
-              final value = isHalfway ? pi - rotateAnim.value : rotateAnim.value;
-              return Transform(
-                transform: Matrix4.rotationY(value),
-                alignment: Alignment.center,
-                child: child,
-              );
-            },
-          );
-        },
-        child: _isFlipped
-            ? _buildBackCard(card)
-            : _buildFrontCard(card),
       ),
     );
   }
@@ -921,8 +928,12 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
             );
           }
 
-          _cards = snapshot.data!;
-          final currentCard = _cards[_currentIndex];
+          if (_shuffledCards.isEmpty) {
+            _cards = snapshot.data!;
+            _shuffledCards = List.from(_cards)..shuffle();
+          }
+
+          final currentCard = _shuffledCards[_currentIndex];
 
           return Column(
             children: [
@@ -933,7 +944,7 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
                   children: [
                     _buildStatCounter(Icons.check, 'Correct', _correctCount, Colors.green),
                     _buildStatCounter(Icons.close, 'Wrong', _wrongCount, Colors.red),
-                    _buildStatCounter(Icons.library_books, 'Progress', _currentIndex + 1, Colors.blue, total: _cards.length),
+                    _buildStatCounter(Icons.library_books, 'Progress', _currentIndex + 1, Colors.blue, total: _shuffledCards.length),
                   ],
                 ),
               ),
@@ -941,20 +952,11 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      SizedBox(height: 20),
-                      AspectRatio(
-                        aspectRatio: 0.8,
-                        child: _buildFlipCard(currentCard),
-                      ),
-                      SizedBox(height: 30),
-                      if (_answerChecked && !_isFlipped && !_isCorrect)
-                        Text(
-                          'Correct answer: ${currentCard.back}',
-                          style: TextStyle(fontSize: 18, color: Colors.grey[700]),
-                        ),
-                    ],
+                  child: AnimatedSwitcher(
+                    duration: Duration(milliseconds: 300),
+                    child: _isFlipped
+                        ? _buildBackCard(currentCard)
+                        : _buildFrontCard(currentCard),
                   ),
                 ),
               ),
