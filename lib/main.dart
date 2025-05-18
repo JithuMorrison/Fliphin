@@ -1,3 +1,5 @@
+import 'dart:math';
+import 'package:flutter/scheduler.dart' show timeDilation;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -589,17 +591,20 @@ class PlayCardsPage extends StatefulWidget {
   _PlayCardsPageState createState() => _PlayCardsPageState();
 }
 
-class _PlayCardsPageState extends State<PlayCardsPage> {
+class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProviderStateMixin {
   late Category category;
   late Future<List<Flashcard>> _cardsFuture;
   List<Flashcard> _cards = [];
   int _currentIndex = 0;
-  bool _showAnswer = false;
+  bool _isFlipped = false;
   bool _answerChecked = false;
   bool _isCorrect = false;
   final _answerController = TextEditingController();
   int _correctCount = 0;
   int _wrongCount = 0;
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  final Duration _flipDuration = Duration(milliseconds: 500);
 
   @override
   void didChangeDependencies() {
@@ -616,6 +621,20 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: _flipDuration,
+    );
+    _animation = Tween<double>(begin: 0, end: 1).animate(_controller)
+      ..addListener(() {
+        setState(() {});
+      })
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          // Animation completed
+        }
+      });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
         _loadStats();
@@ -627,6 +646,7 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
   @override
   void dispose() {
     _answerController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -643,7 +663,7 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
     if (_cards.isNotEmpty) {
       setState(() {
         _currentIndex = 0;
-        _showAnswer = false;
+        _isFlipped = false;
         _answerChecked = false;
         _answerController.clear();
       });
@@ -684,9 +704,10 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
     if (_currentIndex < _cards.length - 1) {
       setState(() {
         _currentIndex++;
-        _showAnswer = false;
+        _isFlipped = false;
         _answerChecked = false;
         _answerController.clear();
+        _controller.reset();
       });
     } else {
       // End of cards
@@ -701,9 +722,10 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
                 Navigator.pop(context);
                 setState(() {
                   _currentIndex = 0;
-                  _showAnswer = false;
+                  _isFlipped = false;
                   _answerChecked = false;
                   _answerController.clear();
+                  _controller.reset();
                 });
               },
               child: Text('Start Over'),
@@ -714,11 +736,163 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
     }
   }
 
+  void _toggleCard() {
+    if (_controller.isAnimating) return;
+
+    if (_isFlipped) {
+      _controller.reverse();
+    } else {
+      _controller.forward();
+    }
+
+    setState(() {
+      _isFlipped = !_isFlipped;
+    });
+  }
+
+  Widget _buildFrontCard(Flashcard card) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 2,
+          )
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              card.front,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 32),
+            TextField(
+              controller: _answerController,
+              decoration: InputDecoration(
+                labelText: 'Your answer',
+                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.grey[100],
+              ),
+              onSubmitted: (_) => _checkAnswer(),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _checkAnswer,
+              child: Text('Check Answer', style: TextStyle(fontSize: 16)),
+              style: ElevatedButton.styleFrom(
+                minimumSize: Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackCard(Flashcard card) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 2,
+          )
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              card.back,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w600,
+                color: Colors.blue[800],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 32),
+            if (_answerChecked)
+              Text(
+                _isCorrect ? '✅ Correct!' : '❌ Incorrect',
+                style: TextStyle(
+                  fontSize: 24,
+                  color: _isCorrect ? Colors.green : Colors.red,
+                ),
+              ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _nextCard,
+              child: Text('Next Card', style: TextStyle(fontSize: 16)),
+              style: ElevatedButton.styleFrom(
+                minimumSize: Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                backgroundColor: Colors.blue[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFlipCard(Flashcard card) {
+    return GestureDetector(
+      onTap: _answerChecked ? _toggleCard : null,
+      child: AnimatedSwitcher(
+        duration: _flipDuration,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          final rotateAnim = Tween(begin: pi, end: 0.0).animate(animation);
+          return AnimatedBuilder(
+            animation: rotateAnim,
+            child: child,
+            builder: (context, child) {
+              final isHalfway = animation.value <= 0.5;
+              final value = isHalfway ? pi - rotateAnim.value : rotateAnim.value;
+              return Transform(
+                transform: Matrix4.rotationY(value),
+                alignment: Alignment.center,
+                child: child,
+              );
+            },
+          );
+        },
+        child: _isFlipped
+            ? _buildBackCard(card)
+            : _buildFrontCard(card),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Play: ${category.name}'),
+        centerTitle: true,
+        elevation: 0,
       ),
       body: FutureBuilder<List<Flashcard>>(
         future: _cardsFuture,
@@ -757,106 +931,29 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    Column(
-                      children: [
-                        Icon(Icons.check, color: Colors.green),
-                        Text('$_correctCount'),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        Icon(Icons.close, color: Colors.red),
-                        Text('$_wrongCount'),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        Icon(Icons.library_books, color: Colors.blue),
-                        Text('${_currentIndex + 1}/${_cards.length}'),
-                      ],
-                    ),
+                    _buildStatCounter(Icons.check, 'Correct', _correctCount, Colors.green),
+                    _buildStatCounter(Icons.close, 'Wrong', _wrongCount, Colors.red),
+                    _buildStatCounter(Icons.library_books, 'Progress', _currentIndex + 1, Colors.blue, total: _cards.length),
                   ],
                 ),
               ),
               Divider(height: 1),
               Expanded(
-                child: SingleChildScrollView(
+                child: Padding(
                   padding: EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        color: _showAnswer ? Colors.blue[50] : Colors.white,
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Column(
-                            children: [
-                              Text(
-                                _showAnswer ? currentCard.back : currentCard.front,
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              if (!_showAnswer) ...[
-                                SizedBox(height: 32),
-                                TextField(
-                                  controller: _answerController,
-                                  decoration: InputDecoration(
-                                    labelText: 'Your answer',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  onSubmitted: (_) => _checkAnswer(),
-                                ),
-                                SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: _checkAnswer,
-                                  child: Text('Check Answer'),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
+                      SizedBox(height: 20),
+                      AspectRatio(
+                        aspectRatio: 0.8,
+                        child: _buildFlipCard(currentCard),
                       ),
-                      if (_answerChecked && !_showAnswer) ...[
-                        SizedBox(height: 24),
+                      SizedBox(height: 30),
+                      if (_answerChecked && !_isFlipped && !_isCorrect)
                         Text(
-                          _isCorrect ? '✅ Correct!' : '❌ Incorrect',
-                          style: TextStyle(
-                            fontSize: 24,
-                            color: _isCorrect ? Colors.green : Colors.red,
-                          ),
+                          'Correct answer: ${currentCard.back}',
+                          style: TextStyle(fontSize: 18, color: Colors.grey[700]),
                         ),
-                        if (!_isCorrect) ...[
-                          SizedBox(height: 8),
-                          Text(
-                            'Correct answer: ${currentCard.back}',
-                            style: TextStyle(fontSize: 18),
-                          ),
-                        ],
-                        SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _nextCard,
-                          child: Text('Next Card'),
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: Size(200, 50),
-                          ),
-                        ),
-                      ] else if (_showAnswer) ...[
-                        SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _showAnswer = false;
-                            });
-                          },
-                          child: Text('Try Again'),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -865,19 +962,35 @@ class _PlayCardsPageState extends State<PlayCardsPage> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        child: Icon(_showAnswer ? Icons.visibility_off : Icons.visibility),
-        onPressed: () {
-          setState(() {
-            if(_answerChecked) {
-              _showAnswer = !_showAnswer;
-              if (!_showAnswer) {
-                _answerChecked = false;
-              }
-            }
-          });
-        },
-      ),
+      floatingActionButton: _answerChecked
+          ? FloatingActionButton(
+        child: Icon(_isFlipped ? Icons.visibility_off : Icons.visibility),
+        onPressed: _toggleCard,
+        backgroundColor: Colors.blue,
+      )
+          : null,
+    );
+  }
+
+  Widget _buildStatCounter(IconData icon, String label, int value, Color color, {int? total}) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 20),
+            SizedBox(width: 4),
+            Text(
+              '$value${total != null ? '/$total' : ''}',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+      ],
     );
   }
 }
