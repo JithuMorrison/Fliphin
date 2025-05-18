@@ -1,4 +1,5 @@
 import 'dbhelper.dart';
+import 'edit.dart';
 import 'main.dart';
 import 'package:flutter/material.dart';
 
@@ -56,8 +57,20 @@ class _CategoryCardListPageState extends State<CategoryCardListPage> {
                     children: [
                       IconButton(
                         icon: Icon(Icons.edit, color: Colors.orange),
-                        onPressed: () {
-                          // TODO: implement edit screen
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EditCategoryScreen(category: widget.category), // Pass the selected category
+                            ),
+                          );
+
+                          if (result == true) {
+                            // Refresh UI if category was updated
+                            setState(() {
+                              // reload categories
+                            });
+                          }
                         },
                       ),
                       IconButton(

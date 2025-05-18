@@ -126,6 +126,16 @@ class DatabaseHelper {
     };
   }
 
+  Future<int> updateCategory(Category category) async {
+    final db = await instance.database;
+    return await db.update(
+      'categories',
+      category.toMap(),
+      where: 'id = ?',
+      whereArgs: [category.id],
+    );
+  }
+
   Future close() async {
     final db = await instance.database;
     db.close();
