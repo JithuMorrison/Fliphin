@@ -752,79 +752,86 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: 100,
-                maxHeight: 200,
-              ),
-              child: SingleChildScrollView(
-                child: Text(
-                  card.front,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
+        padding: EdgeInsets.all(16), // Reduced padding
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Question text with flexible space
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            card.front,
+                            style: TextStyle(
+                              fontSize: 24, // Slightly reduced font size
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+
+                    if (!_answerChecked) ...[
+                      TextField(
+                        controller: _answerController,
+                        decoration: InputDecoration(
+                          labelText: 'Your answer',
+                          border: OutlineInputBorder(),
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        onSubmitted: (_) => _checkAnswer(),
+                      ),
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _checkAnswer,
+                        child: Text('Check Answer'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: Size(double.infinity, 48), // Reduced button height
+                        ),
+                      ),
+                    ] else ...[
+                      Text(
+                        _isCorrect ? '✅ Correct!' : '❌ Incorrect',
+                        style: TextStyle(
+                          fontSize: 20, // Reduced font size
+                          color: _isCorrect ? Colors.green : Colors.red,
+                        ),
+                      ),
+                      if (!_isCorrect) ...[
+                        SizedBox(height: 8),
+                        Text(
+                          'Correct answer: ${card.back}',
+                          style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _nextCard,
+                        child: Text('Next Card'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: Size(double.infinity, 48), // Reduced button height
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ),
-            SizedBox(height: 32),
-            if (!_answerChecked) ...[
-              TextField(
-                controller: _answerController,
-                decoration: InputDecoration(
-                  labelText: 'Your answer',
-                  border: OutlineInputBorder(),
-                  filled: true,
-                  fillColor: Colors.grey[100],
-                ),
-                onSubmitted: (_) => _checkAnswer(),
-              ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _checkAnswer,
-                child: Text('Check Answer', style: TextStyle(fontSize: 16)),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ] else ...[
-              Text(
-                _isCorrect ? '✅ Correct!' : '❌ Incorrect',
-                style: TextStyle(
-                  fontSize: 24,
-                  color: _isCorrect ? Colors.green : Colors.red,
-                ),
-              ),
-              if (!_isCorrect) ...[
-                SizedBox(height: 8),
-                Text(
-                  'Correct answer: ${card.back}',
-                  style: TextStyle(fontSize: 18, color: Colors.grey[700]),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _nextCard,
-                child: Text('Next Card', style: TextStyle(fontSize: 16)),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  backgroundColor: Colors.blue[600],
-                ),
-              ),
-            ],
-          ],
+            );
+          },
         ),
       ),
     );
@@ -844,50 +851,59 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: 100,
-                maxHeight: 200,
-              ),
-              child: SingleChildScrollView(
-                child: Text(
-                  card.back,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue[800],
-                  ),
-                  textAlign: TextAlign.center,
+        padding: EdgeInsets.all(16), // Reduced padding
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Answer text with flexible space
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            card.back,
+                            style: TextStyle(
+                              fontSize: 24, // Slightly reduced font size
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue[800],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+
+                    if (_answerChecked) ...[
+                      Text(
+                        _isCorrect ? '✅ Correct!' : '❌ Incorrect',
+                        style: TextStyle(
+                          fontSize: 20, // Reduced font size
+                          color: _isCorrect ? Colors.green : Colors.red,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _nextCard,
+                        child: Text('Next Card'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: Size(double.infinity, 48), // Reduced button height
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ),
-            SizedBox(height: 32),
-            if (_answerChecked) ...[
-              Text(
-                _isCorrect ? '✅ Correct!' : '❌ Incorrect',
-                style: TextStyle(
-                  fontSize: 24,
-                  color: _isCorrect ? Colors.green : Colors.red,
-                ),
-              ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _nextCard,
-                child: Text('Next Card', style: TextStyle(fontSize: 16)),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  backgroundColor: Colors.blue[600],
-                ),
-              ),
-            ],
-          ],
+            );
+          },
         ),
       ),
     );
@@ -952,11 +968,14 @@ class _PlayCardsPageState extends State<PlayCardsPage> with SingleTickerProvider
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.all(16),
-                  child: AnimatedSwitcher(
-                    duration: Duration(milliseconds: 300),
-                    child: _isFlipped
-                        ? _buildBackCard(currentCard)
-                        : _buildFrontCard(currentCard),
+                  child: AspectRatio(
+                    aspectRatio: 0.8,
+                    child: AnimatedSwitcher(
+                      duration: Duration(milliseconds: 300),
+                      child: _isFlipped
+                          ? _buildBackCard(currentCard)
+                          : _buildFrontCard(currentCard),
+                    ),
                   ),
                 ),
               ),
