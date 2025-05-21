@@ -1,5 +1,6 @@
 import 'dbhelper.dart';
 import 'edit.dart';
+import 'editcard.dart';
 import 'main.dart';
 import 'package:flutter/material.dart';
 
@@ -61,14 +62,13 @@ class _CategoryCardListPageState extends State<CategoryCardListPage> {
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => EditCategoryScreen(category: widget.category), // Pass the selected category
+                              builder: (context) => EditFlashcardScreen(flashcard: card),
                             ),
                           );
 
                           if (result == true) {
-                            // Refresh UI if category was updated
                             setState(() {
-                              // reload categories
+                              _loadCards(); // Refresh the card list after editing
                             });
                           }
                         },
